@@ -1,6 +1,6 @@
 # Loaf-reader
 
-Loaf Reader: F10：enters no background mode  F11：jumps to book page   F12：reads books   ESC：quickly exits
+Loaf Reader: F9:change color  F10：enters no background mode  F11：jumps to book page   F12：reads books   ESC：quickly exits
     Direction key ← Page forward
     Direction key ->Page backward
     Direction keys ↓ Hide content
@@ -8,7 +8,7 @@ Loaf Reader: F10：enters no background mode  F11：jumps to book page   F12：r
     Automatically save bookmarks
 
 
-摸鱼阅读器：F10进入无背景模式  F11跳转书页  F12读取书籍 ESC快速退出
+摸鱼阅读器：F9改变颜色  F10进入无背景模式  F11跳转书页  F12读取书籍 ESC快速退出
     方向键 ← 向前翻页
     方向键 → 向后翻页
     方向键 ↓ 隐藏内容
