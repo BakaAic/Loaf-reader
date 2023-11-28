@@ -124,9 +124,7 @@ class Reader():
     def _splitPage(self,book):
         bookpage=BookPage()
         char_mark=0
-        count=0
         while True:
-            count+=1
             curPage=self.calcNumOfPage(book.book,book.bookLen,char_mark)
             if curPage==0:
                 return bookpage
