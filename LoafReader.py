@@ -13,7 +13,7 @@ except ImportError:
     pip.main(['install', 'keyboard'])
     import keyboard
 
-_path=os.path.dirname(os.path.abspath(__file__))
+_path=os.getcwd()
 _bookPath=os.path.join(_path,"books")
 if not os.path.exists(_bookPath):
     os.mkdir(_bookPath)
@@ -67,6 +67,7 @@ class Reader():
         self.curBook = None
         self.showText = ""
         self.loafMode = False
+        self.colorMode = True
         self.switching = False
         self.jumpWindowStatus = False
         self.bookWindowStatus = False
@@ -123,14 +124,14 @@ class Reader():
     def _splitPage(self,book):
         bookpage=BookPage()
         char_mark=0
-        lastpageNum=0
+        count=0
         while True:
-            curPage=self.calcNumOfPage(book.book,book.bookLen,char_mark,lastpageNum)
+            count+=1
+            curPage=self.calcNumOfPage(book.book,book.bookLen,char_mark)
             if curPage==0:
                 return bookpage
             bookpage.addPage((char_mark,curPage))
             char_mark+=curPage
-            lastpageNum=curPage
 
     def _loadBook(self,event):
         book = self.bookList.get(self.bookList.curselection())
@@ -165,18 +166,18 @@ class Reader():
     
     def mainWindow(self):
         self.root = Tk()
-        self.fonts = font.Font(family='black', size=11)     #, weight=font.BOLD
+        self.fonts = font.Font(family='black', size=11)
         self.screenWidth = self.root.winfo_screenwidth() - 600
         self.screenHeight = self.root.winfo_screenheight() - 250
-        self.root.title("Loaf Reader (F10:LoafMode F11:Jump F12:SelectBook))")
+        self.root.title("Loaf Reader (F9:ChangeColor F10:LoafMode F11:Jump F12:SelectBook))")
         self.root.attributes("-topmost", True)
         self.root.geometry(f"{self.screenWidth}x180+300+{self.screenHeight}")
         self.root.resizable(False, False)
         self.canvas = Canvas(self.root, width=self.screenWidth, height=200, bg="#030303", highlightthickness=0, relief='ridge')
         self.canvas.place(x=0, y=0)
-        self.canvas.create_text(self.screenWidth, 150, text="N/A", font=self.fonts, fill="#FAFAFA", anchor='ne',tag='page')
-        self.textList = Text(self.root, width=150, height=10,font=self.fonts, bg="#030303", fg="#FAFAFA", highlightthickness=0, relief='flat'
-                             ,selectbackground="#030303",selectforeground="#FAFAFA")
+        self._updatePage()
+        self.textList = Text(self.root, width=150, height=11,font=self.fonts, bg="#030303", fg="#FAFAFA" if self.colorMode else "#0A0A0A", highlightthickness=0, relief='flat'
+                             ,selectbackground="#030303",selectforeground="#FAFAFA" if self.colorMode else "#0A0A0A")
         self.textList.place(x=0, y=0)
         self.textList['state'] = 'disabled'
         self.canvas.bind("<ButtonPress-1>", self._dragPress)
@@ -192,7 +193,7 @@ class Reader():
     def _updatePage(self):
         if not self.hideState:
             self.canvas.delete('page')
-            self.canvas.create_text(self.screenWidth, 150, text=self._getPage(), font=self.fonts, fill="#FAFAFA", anchor='ne',tag='page')
+            self.canvas.create_text(self.screenWidth, 150, text=self._getPage() if self.curBook!=None else 'N/A', font=self.fonts, fill="#FAFAFA" if self.colorMode else "#0A0A0A", anchor='ne',tag='page')
 
     def _getPage(self):
         return f"{self.curBook.mark+1}/{self.curBook.page.totalPage}"
@@ -203,6 +204,24 @@ class Reader():
     def loafModeSwitch(self):
         self.loafMode = not self.loafMode
         self.switching = True
+        
+    def colorModeSwitch(self):
+        self.colorMode = not self.colorMode
+        self.colorUpdate()
+        
+    def colorUpdate(self):
+        self._updatePage()
+        self.textList['fg'] = "#FAFAFA" if self.colorMode else "#0A0A0A"
+        self.textList['selectforeground'] = "#FAFAFA" if self.colorMode else "#0A0A0A"
+        if not self.loafMode:
+            self.textList['bg'] = "#030303" if self.colorMode else "#FAFAFA"
+            self.canvas['bg'] = "#030303" if self.colorMode else "#FAFAFA"
+        else:
+            self.textList['bg'] = "#030303"
+            self.canvas['bg'] = "#030303"
+            self.canvas.delete('handler')
+            self.canvas.create_rectangle(self.screenWidth-7, 0, self.screenWidth, 15, fill="#FAFAFA" if self.colorMode else "#0A0A0A", outline="#FAFAFA" if self.colorMode else "#0A0A0A",tags='handler')
+        self.root.update()
         
     def _loadLibrary(self):
         self.bookList.delete(0, END)
@@ -243,7 +262,7 @@ class Reader():
         self.jumpWindow.bind("<Return>", self._jumpPage)
         self.jumpInput.focus_set()
         
-    def _jumpPage(self,event):
+    def _jumpPage(self,*event):
         if self.curBook!=None:
             try:
                 jumpPage=int(self.jumpInput.get())
@@ -275,6 +294,7 @@ class Reader():
             self.root.overrideredirect(True)
             self.root.attributes("-transparentcolor", '#030303')
             self.canvas.create_rectangle(self.screenWidth-7, 0, self.screenWidth, 15, fill="white", outline="white",tag='handler')
+            self.colorUpdate()
         except:
             pass
         
@@ -284,6 +304,8 @@ class Reader():
             self.root.overrideredirect(False)
             self.root.attributes("-transparentcolor", '#39AF0F')
             self.canvas.delete('handler')
+            self.colorUpdate()
+            self.root.focus_set()
         except:
             pass
         
@@ -300,16 +322,16 @@ class Reader():
         else:
             return int(num)
     
-    def calcNumOfPage(self,book,bookLen,curMark,lastPageNum = 0):
+    def calcNumOfPage(self,book,bookLen,curMark):
         num = 0
         linechar = 0
         line = 0
         total = 0
-        for i in book[curMark + lastPageNum : curMark + lastPageNum + self.wordWidth * self.wordHeight + 1]:
+        for i in book[curMark : curMark+ self.wordWidth * self.wordHeight + 1]:
             total += 1
             if i == '\n':
                 num += self.wordWidth - self.upFloat(linechar) % self.wordWidth
-                line += 1 + self.upFloat(linechar // self.wordWidth)
+                line += 1 + (linechar // self.wordWidth)
                 linechar = 0
             else:
                 if self.isFullWidth(i):
@@ -363,7 +385,7 @@ class Reader():
             self.hideState = False
             self.textList.place(x=0, y=0)
             if self.loafMode:
-                self.canvas.create_rectangle(self.screenWidth-7, 0, self.screenWidth, 15, fill="white", outline="white",tags='handler')
+                self.canvas.create_rectangle(self.screenWidth-7, 0, self.screenWidth, 15, fill="#FAFAFA" if self.colorMode else "#0A0A0A", outline="#FAFAFA" if self.colorMode else "#0A0A0A",tags='handler')
                 self._updatePage()
     
     def hide(self):
@@ -385,6 +407,8 @@ class Reader():
                     self.bookWindowStatus = False
                 else:
                     self.root.destroy()
+            elif key_event == "F9":
+                self.colorModeSwitch()
             elif key_event == "F10":
                 self.loafModeSwitch()
             elif key_event == "F11":
@@ -416,6 +440,7 @@ class Reader():
         self.root.after(10, self.eventLoop)
 
 keyboard_listen=KeyBoardListener()
+keyboard.add_hotkey("F9", keyboard_listen.putQueue, args=["F9"])
 keyboard.add_hotkey("F10", keyboard_listen.putQueue, args=["F10"])
 keyboard.add_hotkey("F11", keyboard_listen.putQueue, args=["F11"])
 keyboard.add_hotkey("F12", keyboard_listen.putQueue, args=["F12"])
