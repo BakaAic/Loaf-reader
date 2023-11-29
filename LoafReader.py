@@ -58,8 +58,20 @@ class Book():
         self.mark = mark
     
     def openBook(self):
-        with open(self.bookpath,"r") as f:
-            self.book = f.read()
+        try:
+            with open(self.bookpath,"r",encoding="utf-8") as f:
+                self.book = f.read()
+        except UnicodeDecodeError:
+            try:
+                with open(self.bookpath,"r",encoding="gb2312") as f:
+                    self.book = f.read()
+            except UnicodeDecodeError:
+                try:
+                    with open(self.bookpath,"r",encoding="gb18030") as f:
+                        self.book = f.read()
+                except UnicodeDecodeError:
+                    with open(self.bookpath,"r",encoding="gbk",errors="replace") as f:
+                        self.book = f.read()
 
 class Reader():
     def __init__(self,keyBoardListener):
@@ -69,6 +81,8 @@ class Reader():
         self.loafMode = False
         self.colorMode = True
         self.switching = False
+        self.leftHandMode = False
+        self.halfWidthMode = False
         self.jumpWindowStatus = False
         self.bookWindowStatus = False
         self.hideState = False
@@ -167,14 +181,14 @@ class Reader():
         self.fonts = font.Font(family='black', size=11)
         self.screenWidth = self.root.winfo_screenwidth() - 600
         self.screenHeight = self.root.winfo_screenheight() - 250
-        self.root.title("Loaf Reader (F9:ChangeColor F10:LoafMode F11:Jump F12:SelectBook))")
+        self.root.title("Loaf Reader (F7:HalfWidth F8:LeftHandLock F9:ChangeColor F10:LoafMode F11:Jump F12:SelectBook))")
         self.root.attributes("-topmost", True)
         self.root.geometry(f"{self.screenWidth}x180+300+{self.screenHeight}")
         self.root.resizable(False, False)
-        self.canvas = Canvas(self.root, width=self.screenWidth, height=200, bg="#030303", highlightthickness=0, relief='ridge')
+        self.canvas = Canvas(self.root, width=self.screenWidth, height=400, bg="#030303", highlightthickness=0, relief='ridge')
         self.canvas.place(x=0, y=0)
         self._updatePage()
-        self.textList = Text(self.root, width=150, height=11,font=self.fonts, bg="#030303", fg="#FAFAFA" if self.colorMode else "#0A0A0A", highlightthickness=0, relief='flat'
+        self.textList = Text(self.root, width=self.wordWidth, height=self.wordHeight+1,font=self.fonts, bg="#030303", fg="#FAFAFA" if self.colorMode else "#0A0A0A", highlightthickness=0, relief='flat'
                              ,selectbackground="#030303",selectforeground="#FAFAFA" if self.colorMode else "#0A0A0A")
         self.textList.place(x=0, y=0)
         self.textList['state'] = 'disabled'
@@ -191,7 +205,10 @@ class Reader():
     def _updatePage(self):
         if not self.hideState:
             self.canvas.delete('page')
-            self.canvas.create_text(self.screenWidth, 150, text=self._getPage() if self.curBook!=None else 'N/A', font=self.fonts, fill="#FAFAFA" if self.colorMode else "#0A0A0A", anchor='ne',tag='page')
+            if self.halfWidthMode:
+                self.canvas.create_text(self.screenWidth//2, self.wordWidth*2, text=self._getPage() if self.curBook!=None else 'N/A', font=self.fonts, fill="#FAFAFA" if self.colorMode else "#0A0A0A", anchor='ne',tag='page')
+            else:
+                self.canvas.create_text(self.screenWidth, self.wordWidth, text=self._getPage() if self.curBook!=None else 'N/A', font=self.fonts, fill="#FAFAFA" if self.colorMode else "#0A0A0A", anchor='ne',tag='page')
 
     def _getPage(self):
         return f"{self.curBook.mark+1}/{self.curBook.page.totalPage}"
@@ -202,6 +219,16 @@ class Reader():
     def loafModeSwitch(self):
         self.loafMode = not self.loafMode
         self.switching = True
+        
+    def leftHandModeSwitch(self):
+        self.leftHandMode = not self.leftHandMode
+        
+    def halfWidthModeSwitch(self):
+        self.halfWidthMode = not self.halfWidthMode
+        if self.halfWidthMode:
+            self.halfWidthWindows()
+        else:
+            self.fullWidthWindows()
         
     def colorModeSwitch(self):
         self.colorMode = not self.colorMode
@@ -218,7 +245,8 @@ class Reader():
             self.textList['bg'] = "#030303"
             self.canvas['bg'] = "#030303"
             self.canvas.delete('handler')
-            self.canvas.create_rectangle(self.screenWidth-7, 0, self.screenWidth, 15, fill="#FAFAFA" if self.colorMode else "#0A0A0A", outline="#FAFAFA" if self.colorMode else "#0A0A0A",tags='handler')
+            self.canvas.create_rectangle((self.screenWidth//2-7) if self.halfWidthMode else self.screenWidth -7, 0, (self.screenWidth//2) if self.halfWidthMode else self.screenWidth,
+                                         15, fill="#FAFAFA" if self.colorMode else "#0A0A0A", outline="#FAFAFA" if self.colorMode else "#0A0A0A",tags='handler')
         self.root.update()
         
     def _loadLibrary(self):
@@ -291,7 +319,8 @@ class Reader():
             self.switching = False
             self.root.overrideredirect(True)
             self.root.attributes("-transparentcolor", '#030303')
-            self.canvas.create_rectangle(self.screenWidth-7, 0, self.screenWidth, 15, fill="white", outline="white",tag='handler')
+            self.canvas.create_rectangle((self.screenWidth//2-7) if self.halfWidthMode else self.screenWidth -7, 0, (self.screenWidth//2) if self.halfWidthMode else self.screenWidth,
+                                         15, fill="white", outline="white",tag='handler')
             self.colorUpdate()
         except:
             pass
@@ -383,7 +412,8 @@ class Reader():
             self.hideState = False
             self.textList.place(x=0, y=0)
             if self.loafMode:
-                self.canvas.create_rectangle(self.screenWidth-7, 0, self.screenWidth, 15, fill="#FAFAFA" if self.colorMode else "#0A0A0A", outline="#FAFAFA" if self.colorMode else "#0A0A0A",tags='handler')
+                self.canvas.create_rectangle((self.screenWidth//2-7) if self.halfWidthMode else self.screenWidth -7, 0, (self.screenWidth//2) if self.halfWidthMode else self.screenWidth, 
+                                             15, fill="#FAFAFA" if self.colorMode else "#0A0A0A", outline="#FAFAFA" if self.colorMode else "#0A0A0A",tags='handler')
                 self._updatePage()
     
     def hide(self):
@@ -392,6 +422,24 @@ class Reader():
             self.hideState = True
             self.textList.place_forget()
             self.canvas.delete('page')
+            
+    def halfWidthWindows(self):
+        self.root.geometry(f"{self.screenWidth//2+20}x360+300+{self.screenHeight-180}")
+        self.textList['width'] = self.wordWidth//2
+        self.textList['height'] = self.wordHeight*2+1
+        if self.loafMode:
+            self.canvas.create_rectangle((self.screenWidth//2-7) if self.halfWidthMode else self.screenWidth -7, 0, (self.screenWidth//2) if self.halfWidthMode else self.screenWidth, 
+                                             15, fill="#FAFAFA" if self.colorMode else "#0A0A0A", outline="#FAFAFA" if self.colorMode else "#0A0A0A",tags='handler')
+        self._updatePage()
+    
+    def fullWidthWindows(self):
+        self.root.geometry(f"{self.screenWidth}x180+300+{self.screenHeight}")
+        self.textList['width'] = self.wordWidth
+        self.textList['height'] = self.wordHeight+1
+        if self.loafMode:
+            self.canvas.create_rectangle((self.screenWidth//2-7) if self.halfWidthMode else self.screenWidth -7, 0, (self.screenWidth//2) if self.halfWidthMode else self.screenWidth, 
+                                             15, fill="#FAFAFA" if self.colorMode else "#0A0A0A", outline="#FAFAFA" if self.colorMode else "#0A0A0A",tags='handler')
+        self._updatePage()
         
     def eventLoop(self):
         key_event=self.keyBoardListener.getQueue()
@@ -405,6 +453,10 @@ class Reader():
                     self.bookWindowStatus = False
                 else:
                     self.root.destroy()
+            elif key_event == "F7":
+                self.halfWidthModeSwitch()
+            elif key_event == "F8":
+                self.leftHandModeSwitch()
             elif key_event == "F9":
                 self.colorModeSwitch()
             elif key_event == "F10":
@@ -421,13 +473,13 @@ class Reader():
                     self.bookWindowStatus = False
                 else:
                     self.selectBook()
-            elif key_event == "Left":
+            elif key_event == "Left" or (key_event == "A" if self.leftHandMode else False):
                 self.prevPage()
-            elif key_event == "Right":
+            elif key_event == "Right" or (key_event == "D" if self.leftHandMode else False):
                 self.nextPage()
-            elif key_event == "Up":
+            elif key_event == "Up" or (key_event == "W" if self.leftHandMode else False):
                 self.show()
-            elif key_event == "Down":
+            elif key_event == "Down" or (key_event == "S" if self.leftHandMode else False):
                 self.hide()
         if self.loafMode:
             if self.switching:
@@ -438,6 +490,8 @@ class Reader():
         self.root.after(10, self.eventLoop)
 
 keyboard_listen=KeyBoardListener()
+keyboard.add_hotkey("F7", keyboard_listen.putQueue, args=["F7"])
+keyboard.add_hotkey("F8", keyboard_listen.putQueue, args=["F8"])
 keyboard.add_hotkey("F9", keyboard_listen.putQueue, args=["F9"])
 keyboard.add_hotkey("F10", keyboard_listen.putQueue, args=["F10"])
 keyboard.add_hotkey("F11", keyboard_listen.putQueue, args=["F11"])
@@ -447,5 +501,9 @@ keyboard.add_hotkey("Right", keyboard_listen.putQueue, args=["Right"])
 keyboard.add_hotkey("Up", keyboard_listen.putQueue, args=["Up"])
 keyboard.add_hotkey("Down", keyboard_listen.putQueue, args=["Down"])
 keyboard.add_hotkey("Escape", keyboard_listen.putQueue, args=["Escape"])
+keyboard.add_hotkey("W", keyboard_listen.putQueue, args=["W"])
+keyboard.add_hotkey("S", keyboard_listen.putQueue, args=["S"])
+keyboard.add_hotkey("A", keyboard_listen.putQueue, args=["A"])
+keyboard.add_hotkey("D", keyboard_listen.putQueue, args=["D"])
 reader=Reader(keyboard_listen)
 reader.mainWindow()
